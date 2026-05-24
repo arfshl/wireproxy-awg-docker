@@ -21,7 +21,7 @@ RUN export GOOS=linux && \
     else \
         unset GOARM; \
     fi && \
-    cd wireproxy && GOFLAGS="-ldflags=-s -ldflags=-w" make
+    cd wireproxy-awg && GOFLAGS="-ldflags=-s -ldflags=-w" make
 
 # Smoke test
 RUN cd wireproxy-awg && ./wireproxy -h
