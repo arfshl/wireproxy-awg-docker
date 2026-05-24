@@ -1,0 +1,43 @@
+# STEP 1 BUILD
+FROM --platform=${BUILDPLATFORM} golang:trixie AS builder
+ARG TARGETARCH
+ARG TARGETVARIANT
+WORKDIR /app
+
+RUN apt-get install --update -y --no-install-recommends \
+    build-essential \
+    git \
+    make \
+    cmake 
+    
+RUN rm -rf /var/lib/apt/lists/*
+
+RUN git clone https://github.com/artem-russkikh/wireproxy-awg.git
+
+RUN export GOOS=linux && \
+    export GOARCH=${TARGETARCH} && \
+    if [ "${TARGETARCH}" = "arm" ]; then \
+        export GOARM=${TARGETVARIANT##*v}; \
+    else \
+        unset GOARM; \
+    fi && \
+    cd wireproxy && GOFLAGS="-ldflags=-s -ldflags=-w" make
+
+# Smoke test
+RUN cd wireproxy-awg && ./wireproxy -h
+
+# STEP 2 RUNTIME
+FROM debian:trixie
+WORKDIR /app
+COPY --from=builder /app/wireproxy-awg/wireproxy /app/wireproxy-awg/wireproxy
+EXPOSE 25565
+EXPOSE 25545
+EXPOSE 25344
+EXPOSE 25345
+# Create a non-root user
+RUN groupadd -r appgroup && \
+    useradd -r -g appgroup -m -s /sbin/nologin appuser
+USER appuser
+VOLUME [ "/app/wireproxy-awg" ]
+ENTRYPOINT [ "/app/wireproxy-awg/wireproxy" ]
+CMD [ "--config", "/app/wireproxy-awg/config" ]
